@@ -8,6 +8,8 @@ export default function OverviewPage() {
   const navigate = useNavigate()
   const pendingProposals = samples.reduce((sum, item) => sum + item.proposals.filter((proposal) => proposal.status === '待决定').length, 0)
   const pendingAnnotations = samples.reduce((sum, item) => sum + item.annotations.filter((annotation) => annotation.status === '待处理').length, 0)
+  const staleCraft = samples.reduce((sum, item) => sum + item.craftRequirements.filter((cr) => cr.status === '待重算').length, 0)
+  const staleMarks = samples.reduce((sum, item) => sum + item.passMarks.filter((pm) => pm.status === '待重算').length, 0)
   const averagePass = Math.round(
     (samples.reduce((sum, sample) => {
       const measurements = sample.measurements['第三轮']
@@ -24,7 +26,7 @@ export default function OverviewPage() {
         <Box>
           <Typography className="eyebrow">PRODUCT DEVELOPMENT / 产品开发</Typography>
           <Typography component="h1" fontWeight={800}>打样轮次总览</Typography>
-          <Typography color="text.secondary">关注超差、待决方案与审核节奏，所有数据来自本地 MSW 服务。</Typography>
+          <Typography color="text.secondary">关注超差、待决方案、过期工艺与通过标记，所有数据来自本地 MSW 服务。</Typography>
         </Box>
         <Button variant="contained" onClick={() => navigate('/review')}>进入样衣评审</Button>
       </Box>
@@ -35,10 +37,12 @@ export default function OverviewPage() {
           ['尺寸达标率', `${averagePass}%`, '第三轮综合结果'],
           ['待决定改版', pendingProposals, '需负责人采纳'],
           ['未关闭批注', pendingAnnotations, '包含尺寸与工艺'],
+          ['过期工艺要求', staleCraft, '需责任人再确认'],
+          ['过期通过标记', staleMarks, '需重算确认'],
         ].map(([label, value, hint]) => (
           <Box className="panel" key={String(label)} sx={{ p: 2 }}>
             <Typography color="#756f69" fontSize={12}>{label}</Typography>
-            <Typography fontSize={{ xs: 26, md: 32 }} fontWeight={850} mt={0.8} color="#203634">{value}</Typography>
+            <Typography fontSize={{ xs: 26, md: 32 }} fontWeight={850} mt={0.8} color={Number(value) > 0 && (String(label).includes('过期') || String(label).includes('待')) ? '#b44b2d' : '#203634'}>{value}</Typography>
             <Typography color="#89837e" fontSize={11}>{hint}</Typography>
           </Box>
         ))}

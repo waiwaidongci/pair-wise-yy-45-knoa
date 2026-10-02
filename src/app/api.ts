@@ -1,5 +1,5 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react'
-import type { Annotation, Sample } from '../api/types'
+import type { Annotation, RevisionRequestBody, RevisionResult, Sample } from '../api/types'
 
 export const samplingApi = createApi({
   reducerPath: 'samplingApi',
@@ -30,7 +30,36 @@ export const samplingApi = createApi({
       }),
       invalidatesTags: (_result, _error, { sampleId }) => [{ type: 'Sample', id: sampleId }],
     }),
+    submitRevision: builder.mutation<
+      RevisionResult,
+      { sampleId: string; body: RevisionRequestBody; simulateCollaborator?: boolean; injectFailure?: string }
+    >({
+      query: ({ sampleId, body, simulateCollaborator, injectFailure }) => ({
+        url: `api/samples/${sampleId}/revisions`,
+        method: 'POST',
+        body,
+        headers: {
+          ...(simulateCollaborator ? { 'x-simulate-collaborator': '1' } : {}),
+          ...(injectFailure ? { 'x-inject-failure': injectFailure } : {}),
+        },
+      }),
+    }),
+    retryRevision: builder.mutation<RevisionResult, { sampleId: string; journalId: string; injectFailure?: string }>({
+      query: ({ sampleId, journalId, injectFailure }) => ({
+        url: `api/samples/${sampleId}/revisions/${journalId}/retry`,
+        method: 'POST',
+        headers: injectFailure ? { 'x-inject-failure': injectFailure } : {},
+        body: {},
+      }),
+    }),
   }),
 })
 
-export const { useGetSamplesQuery, useGetSampleQuery, useAddAnnotationMutation, useAddCommentMutation } = samplingApi
+export const {
+  useGetSamplesQuery,
+  useGetSampleQuery,
+  useAddAnnotationMutation,
+  useAddCommentMutation,
+  useSubmitRevisionMutation,
+  useRetryRevisionMutation,
+} = samplingApi
