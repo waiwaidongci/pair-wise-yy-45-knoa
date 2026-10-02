@@ -3,11 +3,15 @@ import AddPhotoAlternateOutlinedIcon from '@mui/icons-material/AddPhotoAlternate
 import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined'
 import { useAppDispatch, useAppSelector } from '../app/hooks'
 import { selectSample } from '../features/developmentSlice'
+import StaleBanner from '../features/StaleBanner'
+import CraftReconfirmPanel from '../features/CraftReconfirmPanel'
+import { staleCrafts } from '../features/dependencyChain'
 
 export default function StylesPage() {
   const dispatch = useAppDispatch()
   const { samples, selectedId } = useAppSelector((state) => state.development)
   const selected = samples.find((item) => item.id === selectedId) ?? samples[0]
+  const staleCount = staleCrafts(selected).length
 
   return (
     <Box className="page">
@@ -15,10 +19,12 @@ export default function StylesPage() {
         <Box>
           <Typography className="eyebrow">STYLE FILES / 款式档案</Typography>
           <Typography component="h1" fontWeight={800}>规格、物料与样品轮次</Typography>
-          <Typography color="text.secondary">款式档案是批注、尺寸修订和审核记录的单一来源。</Typography>
+          <Typography color="text.secondary">款式档案是批注、尺寸修订和审核记录的单一来源；链版本变化会沿依赖链向下传播。</Typography>
         </Box>
         <Button variant="contained" startIcon={<AddPhotoAlternateOutlinedIcon />}>新建款式档案</Button>
       </Box>
+
+      <StaleBanner sample={selected} />
 
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '260px minmax(0,1fr)' }, gap: 1.5 }}>
         <Box className="panel" sx={{ overflow: 'hidden' }}>
@@ -46,9 +52,12 @@ export default function StylesPage() {
             >
               <Typography fontWeight={800} fontSize={13}>{sample.styleCode}</Typography>
               <Typography fontSize={13} mt={0.3}>{sample.styleName}</Typography>
-              <Stack direction="row" spacing={0.6} mt={0.8}>
+              <Stack direction="row" spacing={0.6} mt={0.8} flexWrap="wrap" useFlexGap>
                 <Chip size="small" label={sample.owner} />
                 <Chip size="small" label={sample.status} color={sample.status === '待审核' ? 'warning' : 'default'} />
+                {staleCrafts(sample).length > 0 && (
+                  <Chip size="small" color="warning" label={`${staleCrafts(sample).length} 项工艺过期`} />
+                )}
               </Stack>
             </Button>
           ))}
@@ -62,6 +71,7 @@ export default function StylesPage() {
             </Box>
             <Stack direction="row" spacing={1} alignItems="center">
               <Chip label={selected.category} />
+              <Chip label={`链版本 v${selected.revision}`} variant="outlined" />
               <Chip label={selected.status} color={selected.status === '已锁定' ? 'success' : 'warning'} />
             </Stack>
           </Box>
@@ -77,36 +87,35 @@ export default function StylesPage() {
               </Box>
             </Box>
             <Box>
-              <Typography fontWeight={800} mb={1}>工艺要求</Typography>
-              <Stack spacing={0.8}>
-                {selected.craft.map((item, index) => (
-                  <Box key={item} sx={{ display: 'flex', gap: 1, alignItems: 'center', p: 1, bgcolor: '#f7f6f3', borderRadius: 1 }}>
-                    <Chip size="small" label={`工艺 ${index + 1}`} />
-                    <Typography fontSize={12}>{item}</Typography>
+              <Typography fontWeight={800} mb={1}>样衣轮次与附件</Typography>
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3,1fr)' }, gap: 1 }}>
+                {(['第一轮', '第二轮', '第三轮'] as const).map((round) => (
+                  <Box key={round} sx={{ p: 1.3, border: '1px solid #e3e0db', borderRadius: 1 }}>
+                    <Typography fontWeight={800} fontSize={13}>{round}</Typography>
+                    <Typography color="text.secondary" fontSize={11} mt={0.5}>
+                      {selected.measurements[round].length} 项实测 · {round === '第三轮' ? '当前评测' : '历史记录'}
+                    </Typography>
                   </Box>
+                ))}
+              </Box>
+              <Stack direction="row" gap={1} flexWrap="wrap" mt={1.2}>
+                {selected.attachments.map((file) => (
+                  <Button key={file.name} variant="outlined" size="small" startIcon={<DescriptionOutlinedIcon />}>{file.name}</Button>
                 ))}
               </Stack>
             </Box>
           </Box>
+
           <Divider />
+
           <Box sx={{ p: 2 }}>
-            <Typography fontWeight={800} mb={1.2}>样衣轮次与附件</Typography>
-            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3,1fr)' }, gap: 1 }}>
-              {(['第一轮', '第二轮', '第三轮'] as const).map((round) => (
-                <Box key={round} sx={{ p: 1.5, border: '1px solid #e3e0db', borderRadius: 1 }}>
-                  <Typography fontWeight={800} fontSize={13}>{round}</Typography>
-                  <Typography color="text.secondary" fontSize={11} mt={0.5}>
-                    {selected.measurements[round].length} 项实测 · {round === '第三轮' ? '当前评测' : '历史记录'}
-                  </Typography>
-                  <Button size="small" sx={{ mt: 1 }}>查看实测</Button>
-                </Box>
-              ))}
-            </Box>
-            <Stack direction="row" gap={1} flexWrap="wrap" mt={1.5}>
-              {selected.attachments.map((file) => (
-                <Button key={file.name} variant="outlined" size="small" startIcon={<DescriptionOutlinedIcon />}>{file.name}</Button>
-              ))}
+            <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1.2}>
+              <Typography fontWeight={800}>工艺要求依赖链（{selected.crafts.length} 项{staleCount > 0 ? ` · ${staleCount} 项过期待重算` : ' · 全部有效'}）</Typography>
+              <Typography fontSize={11} color="text.secondary">源（尺寸/批注）→ 工艺依据版本 → 责任人再确认</Typography>
             </Stack>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', xl: '1fr 1fr' }, gap: 1.2 }}>
+              <CraftReconfirmPanel sample={selected} />
+            </Box>
           </Box>
         </Box>
       </Box>

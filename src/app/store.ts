@@ -2,7 +2,7 @@ import { configureStore } from '@reduxjs/toolkit'
 import { samplingApi } from './api'
 import { developmentReducer } from '../features/developmentSlice'
 
-const persistedKey = 'garment-sampling-draft-v1'
+const persistedKey = 'garment-sampling-draft-v3'
 
 export const store = configureStore({
   reducer: {

@@ -2,12 +2,14 @@ import { Box, Button, Chip, LinearProgress, Stack, Typography } from '@mui/mater
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward'
 import { useNavigate } from 'react-router-dom'
 import { useAppSelector } from '../app/hooks'
+import { staleCrafts, stalePartKeys } from '../features/dependencyChain'
 
 export default function OverviewPage() {
   const samples = useAppSelector((state) => state.development.samples)
   const navigate = useNavigate()
   const pendingProposals = samples.reduce((sum, item) => sum + item.proposals.filter((proposal) => proposal.status === '待决定').length, 0)
   const pendingAnnotations = samples.reduce((sum, item) => sum + item.annotations.filter((annotation) => annotation.status === '待处理').length, 0)
+  const stalePartCount = samples.reduce((sum, item) => sum + stalePartKeys(item).length, 0)
   const averagePass = Math.round(
     (samples.reduce((sum, sample) => {
       const measurements = sample.measurements['第三轮']
@@ -35,8 +37,8 @@ export default function OverviewPage() {
           ['尺寸达标率', `${averagePass}%`, '第三轮综合结果'],
           ['待决定改版', pendingProposals, '需负责人采纳'],
           ['未关闭批注', pendingAnnotations, '包含尺寸与工艺'],
-        ].map(([label, value, hint]) => (
-          <Box className="panel" key={String(label)} sx={{ p: 2 }}>
+          ['过期待重算部位', stalePartCount, stalePartCount > 0 ? '下游工艺/结论已失效，禁止按旧资料开裁' : '依赖链全部最新'],
+        ].map(([label, value, hint]) => (          <Box className="panel" key={String(label)} sx={{ p: 2 }}>
             <Typography color="#756f69" fontSize={12}>{label}</Typography>
             <Typography fontSize={{ xs: 26, md: 32 }} fontWeight={850} mt={0.8} color="#203634">{value}</Typography>
             <Typography color="#89837e" fontSize={11}>{hint}</Typography>
@@ -52,14 +54,20 @@ export default function OverviewPage() {
           </Box>
           {samples.map((sample) => {
             const pending = sample.proposals.filter((item) => item.status === '待决定').length + sample.annotations.filter((item) => item.status === '待处理').length
+            const staleCount = stalePartKeys(sample).length
+            const staleCraftCount = staleCrafts(sample).length
             const third = sample.measurements['第三轮']
             const passed = third.filter((item) => Math.abs(item.actual - item.spec) <= item.tolerance).length
             return (
               <Box key={sample.id} sx={{ p: 2, borderBottom: '1px solid #efede9', display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr auto' }, gap: 1.5 }}>
                 <Box>
-                  <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap">
+                  <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap" useFlexGap>
                     <Typography fontWeight={800}>{sample.styleCode} · {sample.styleName}</Typography>
                     <Chip size="small" label={sample.status} color={sample.status === '已锁定' ? 'success' : sample.status === '待审核' ? 'warning' : 'default'} />
+                    <Chip size="small" variant="outlined" label={`链版本 v${sample.revision}`} />
+                    {staleCount > 0 && (
+                      <Chip size="small" color="warning" label={`${staleCount} 部位过期 · ${staleCraftCount} 工艺待重算`} />
+                    )}
                   </Stack>
                   <Typography color="text.secondary" fontSize={12} mt={0.8}>{sample.fabric} · {sample.colorway} · 交样 {sample.dueDate}</Typography>
                   <LinearProgress variant="determinate" value={(passed / third.length) * 100} sx={{ mt: 1.5, maxWidth: 380, height: 6, borderRadius: 8 }} />
